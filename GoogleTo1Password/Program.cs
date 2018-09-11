@@ -41,7 +41,7 @@ namespace GoogleTo1Password
                 if (IPAddress.TryParse(login.name, out ip))
                     continue;
 
-                // Skip entries where hte username or password field contains ***
+                // Skip entries where the username or password field contains ***
                 if (login.username.Contains("***") || login.password.Contains("***"))
                     continue;
 
