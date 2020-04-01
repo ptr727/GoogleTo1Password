@@ -1,84 +1,86 @@
 ﻿using CsvHelper;
-using CsvHelper.Configuration;
-using McMaster.Extensions.CommandLineUtils;
 using System;
-using System.ComponentModel.DataAnnotations;
 using System.IO;
 using System.Net;
+using System.CommandLine;
+using System.CommandLine.Invocation;
+using System.Globalization;
+using System.Collections.Generic;
 
 namespace GoogleTo1Password
 {
-    class Program
+    internal static class Program
     {
-        // E.g. -InputFile "C:\Users\piete\OneDrive\1Password\Chrome Passwords.csv"
-        public static int Main(string[] args) => CommandLineApplication.Execute<Program>(args);
-
-        [Option("-InputFile")]
-        [Required]
-        string InputFile { get; }
-
-        class Login
+        private static int Main(string[] args)
         {
-            public string Name { get; set; }
-            public string Url { get; set; }
-            public string Username { get; set; }
-            public string Password { get; set; }
-        }
-        class LoginMap : ClassMap<Login>
-        {
-            public LoginMap()
-            {
-                AutoMap();
-                Map(m => m.Name).Name("name");
-                Map(m => m.Url).Name("url");
-                Map(m => m.Username).Name("username");
-                Map(m => m.Password).Name("password");
-            }
+            RootCommand rootCommand = CreateCommandLineOptions();
+            return rootCommand.Invoke(args);
         }
 
-
-
-        private int OnExecute()
+        private static RootCommand CreateCommandLineOptions()
         {
-            string inputCsv = InputFile;
-            Console.WriteLine($"Input File Name : {inputCsv}");
+            // Root command and global options
+            RootCommand rootCommand =
+                new RootCommand("Utility to convert Google Chrome passwords to 1Password passwords.")
+                {
+                    Handler = CommandHandler.Create<string, string>(ConvertCommand)
+                };
 
-            // Follow instructions
-            // https://support.1password.com/import-chrome/
+            // Google passwords input file
+            rootCommand.AddOption(
+                new Option<string>("--google")
+                {
+                    Description = "Path to Google passwords file.",
+                    Required = true
+                });
+
+            // 1Password passwords output file
+            rootCommand.AddOption(
+                new Option<string>("--onepassword")
+                {
+                    Description = "Path to 1Password passwords file.",
+                    Required = true
+                });
+
+            return rootCommand;
+        }
+
+        private static int ConvertCommand(string google, string onepassword)
+        {
+            Console.WriteLine($"Converting \"{google}\" to \"{onepassword}\".");
 
             // Read input CSV file
-            TextReader reader = new StreamReader(inputCsv);
-            CsvReader csvReader = new CsvReader(reader);
+            using StreamReader streamReader = new StreamReader(File.OpenRead(google));
+            using CsvReader csvReader = new CsvReader(streamReader, CultureInfo.InvariantCulture);
             csvReader.Configuration.RegisterClassMap<LoginMap>();
-            var records = csvReader.GetRecords<Login>();
+            IEnumerable<Login> loginRecords = csvReader.GetRecords<Login>();
 
             // Open CSV output file
-            string outputCsv = Path.ChangeExtension(inputCsv, ".conv.csv");
-            Console.WriteLine($"Output File Name : {outputCsv}");
-            TextWriter writer = new StreamWriter(outputCsv);
-            CsvWriter csvWriter = new CsvWriter(writer);
+            using StreamWriter streamWriter = new StreamWriter(onepassword);
+            using CsvWriter csvWriter = new CsvWriter(streamWriter, CultureInfo.InvariantCulture);
             csvWriter.Configuration.RegisterClassMap<LoginMap>();
+
+            // Write the header
             csvWriter.WriteHeader<Login>();
             csvWriter.NextRecord();
 
             // Process all records
             int input = 0, output = 0;
-            foreach (Login login in records)
+            foreach (Login login in loginRecords)
             {
                 input ++;
 
                 // Skip entries for IP addresses
-                IPAddress ip;
-                if (IPAddress.TryParse(login.Name, out ip))
+                if (IPAddress.TryParse(login.Name, out IPAddress _))
                     continue;
 
-                // Skip entries where the username or password field contains ***
-                if (login.Username.Contains("***") || login.Password.Contains("***"))
+                // Skip entries where the username contains *** or •••
+                if (login.Username.Contains("***", StringComparison.OrdinalIgnoreCase) || login.Username.Contains("•••", StringComparison.OrdinalIgnoreCase))
                     continue;
 
-                // Crack the URI and use only the domain name
+                // Crack the URI and use only the domain name portion
                 Uri uri = new Uri(login.Url);
-                login.Url = $"{uri.Scheme}://{uri.Host}";
+                login.Url = uri.Host;
 
                 // Write the record
                 csvWriter.WriteRecord(login);
@@ -87,8 +89,8 @@ namespace GoogleTo1Password
             }
 
             // Close
-            reader.Close();
-            writer.Close();
+            streamReader.Close();
+            streamWriter.Close();
 
             Console.WriteLine($"Wrote {output} of {input} records.");
 

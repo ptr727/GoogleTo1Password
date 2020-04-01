@@ -2,7 +2,7 @@
   "profiles": {
     "GoogleTo1Password": {
       "commandName": "Project",
-      "commandLineArgs": "-InputFile \"C:\\Users\\piete\\OneDrive\\1Password\\Chrome Passwords.csv\""
+      "commandLineArgs": "--google \"..\\..\\..\\..\\Samples\\Google.csv\" --onepassword \"1Password.csv\""
     }
   }
 }
