@@ -1,0 +1,6 @@
+name,url,username,password
+my.1password.com,https://my.1password.com/signin/,someguid,somepassword
+apps.calif.aaa.com,https://apps.calif.aaa.com/aceapps/account-maintenance/register/login-details,someusername,somepassword
+www.americanexpress.com,https://www.americanexpress.com/,foo••••••,somepassword
+www.groupon.com,https://www.groupon.com/login,a****@something.com,somepassword
+192.168.1.100,192.168.1.100/authentication/recovery/password,someusername,somepassword
